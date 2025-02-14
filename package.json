@@ -1,7 +1,7 @@
 {
-  "name": "ExpressFrame",
+  "name": "GhostFrame",
   "version": "1.0.0",
-  "description": "A custom web proxy API, like uv",
+  "description": "GhostFrame - A custom web proxy API with 999999 aura",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js"
@@ -10,6 +10,7 @@
     "body-parser": "^1.20.2",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "express-rate-limit": "^6.7.0",
     "express-session": "^1.17.3",
