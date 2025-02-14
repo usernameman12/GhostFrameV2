@@ -1,0 +1,8 @@
+custom-web-proxy/
+├── api
+│   └── index.js        
+├── public
+│   ├── index.html      
+│   └── sw.js            
+├── package.json         
+└── vercel.json          
