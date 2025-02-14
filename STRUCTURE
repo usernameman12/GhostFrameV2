@@ -1,8 +1,9 @@
-custom-web-proxy/
+GhostFrame/
 ├── api
-│   └── index.js        
+│   └── index.js
 ├── public
-│   ├── index.html      
-│   └── sw.js            
-├── package.json         
-└── vercel.json          
+│   ├── index.html
+│   └── sw.js
+├── .env.example
+├── package.json
+└── vercel.json
