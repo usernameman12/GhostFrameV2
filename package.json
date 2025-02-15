@@ -1,7 +1,7 @@
 {
   "name": "GhostFrame",
   "version": "1.0.0",
-  "description": "GhostFrame - A custom web proxy API with 999999 aura",
+  "description": "GhostFrame - skibidi",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js"
