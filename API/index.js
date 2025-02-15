@@ -19,9 +19,19 @@ app.use(cors());
 app.use(compression());
 app.use(bodyParser.json());
 app.use(morgan("combined"));
-app.use(session({ secret: sessionSecret, resave: false, saveUninitialized: true, cookie: { secure: isProduction } }));
 
-const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { error: "Too many requests, please try again later." } });
+app.use(session({
+  secret: sessionSecret,
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: isProduction }
+}));
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: "Too many requests, please try again later." }
+});
 app.use(apiLimiter);
 
 function handleProxy(targetUrl, req, res, next, useCache = false) {
@@ -36,7 +46,7 @@ function handleProxy(targetUrl, req, res, next, useCache = false) {
     selfHandleResponse: true,
     onProxyRes: (proxyRes, req, res) => {
       let body = "";
-      proxyRes.on("data", (chunk) => { body += chunk; });
+      proxyRes.on("data", chunk => { body += chunk; });
       proxyRes.on("end", () => {
         res.removeHeader("x-frame-options");
         res.removeHeader("content-security-policy");
@@ -52,10 +62,12 @@ function handleProxy(targetUrl, req, res, next, useCache = false) {
   proxy(req, res, next);
 }
 
-app.get("/proxy/:encodedUrl", (req, res, next) => {
+app.get("/api/proxy/:encodedUrl", (req, res, next) => {
   try {
     const decodedUrl = Buffer.from(req.params.encodedUrl, "base64").toString();
-    if (!decodedUrl.startsWith("http")) return res.status(400).json({ error: "Invalid URL" });
+    if (!decodedUrl.startsWith("http")) {
+      return res.status(400).json({ error: "Invalid URL" });
+    }
     handleProxy(decodedUrl, req, res, next, true);
   } catch (err) {
     console.error(err);
@@ -63,14 +75,14 @@ app.get("/proxy/:encodedUrl", (req, res, next) => {
   }
 });
 
-app.post("/proxy", (req, res, next) => {
+app.post("/api/proxy", (req, res, next) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "URL is required" });
   if (!url.startsWith("http")) return res.status(400).json({ error: "Invalid URL" });
   handleProxy(url, req, res, next, false);
 });
 
-app.get("/session", (req, res) => {
+app.get("/api/session", (req, res) => {
   res.json({ session: req.session });
 });
 
