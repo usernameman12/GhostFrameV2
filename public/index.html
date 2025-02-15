@@ -5,82 +5,134 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GhostFrame</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #1e1e1e; color: white; margin: 0; }
-    .header { padding: 20px; text-align: center; }
-    .header input, .header button {
-      padding: 10px; margin: 5px; border: none; border-radius: 5px;
-    }
-    .header input { width: 60%; }
-    .header button { background: #007bff; color: white; cursor: pointer; }
-    .tabs { display: flex; overflow-x: auto; white-space: nowrap; background: #333; padding: 10px; }
-    .tab { padding: 10px 20px; margin: 0 5px; cursor: pointer; background: #555; border-radius: 5px; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #1e1e1e; color: white; }
+    #tabs-bar { display: flex; background: #333; padding: 5px; align-items: center; }
+    .tab { background: #555; padding: 5px 10px; margin-right: 5px; border-radius: 4px; display: flex; align-items: center; cursor: pointer; }
     .tab.active { background: #007bff; }
-    .iframe-container { position: relative; width: 100%; height: calc(100vh - 140px); }
-    iframe { width: 100%; height: 100%; border: none; display: none; position: absolute; top: 0; left: 0; }
+    .tab span { margin-right: 5px; }
+    .tab .close-btn { background: transparent; border: none; color: white; cursor: pointer; }
+    #new-tab-btn { background: #007bff; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+    #nav-bar { display: flex; align-items: center; background: #222; padding: 5px; }
+    #nav-bar button { background: #007bff; border: none; color: white; padding: 5px 10px; margin-right: 5px; border-radius: 4px; cursor: pointer; }
+    #address-bar { flex: 1; padding: 5px; border-radius: 4px; border: none; }
+    #inspect-btn { background: #007bff; border: none; color: white; padding: 5px 10px; margin-left: 5px; border-radius: 4px; cursor: pointer; }
+    #iframes-container { position: relative; height: calc(100vh - 90px); }
+    iframe { position: absolute; width: 100%; height: 100%; border: none; display: none; }
+    #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; }
+    #modal-content { background: #222; padding: 20px; border-radius: 5px; width: 80%; height: 80%; overflow: auto; }
+    #modal-content pre { white-space: pre-wrap; word-wrap: break-word; color: #0f0; }
+    #modal-close { background: #007bff; border: none; padding: 10px; color: white; cursor: pointer; margin-top: 10px; }
   </style>
 </head>
 <body>
-
-  <div class="header">
-    <input id="url" type="text" placeholder="Enter a URL (e.g., https://example.com)">
-    <button onclick="proxy()">Go</button>
+  <div id="tabs-bar">
+    <div id="tabs"></div>
+    <button id="new-tab-btn" onclick="newTab()">+</button>
   </div>
-
-  <div class="tabs" id="tabs"></div>
-
-  <div class="iframe-container" id="iframes"></div>
-
+  <div id="nav-bar">
+    <button id="back-btn" onclick="goBack()">←</button>
+    <button id="forward-btn" onclick="goForward()">→</button>
+    <button id="reload-btn" onclick="reloadPage()">⟳</button>
+    <input id="address-bar" type="text" placeholder="Enter URL here" onkeydown="if(event.key==='Enter'){navigate(this.value)}">
+    <button id="go-btn" onclick="navigate(addressBar.value)">Go</button>
+    <button id="inspect-btn" onclick="inspect()">Inspect</button>
+  </div>
+  <div id="iframes-container"></div>
+  <div id="modal">
+    <div id="modal-content">
+      <pre id="modal-pre"></pre>
+      <button id="modal-close" onclick="closeModal()">Close</button>
+    </div>
+  </div>
   <script>
-    let tabCount = 0;
-    let tabs = [];
+    let tabs = [], activeTab = null, tabCount = 0;
+    const tabsContainer = document.getElementById("tabs");
+    const iframesContainer = document.getElementById("iframes-container");
+    const addressBar = document.getElementById("address-bar");
 
-    function proxy() {
-      const url = document.getElementById("url").value.trim();
-      if (!url) return;
-
+    function newTab(url = "https://example.com") {
+      const tabId = "tab-" + tabCount++;
       const encodedUrl = btoa(url);
-      const tabId = `tab-${tabCount++}`;
-      const iframeId = `iframe-${tabId}`;
-
-      tabs.push({ id: tabId, iframeId, url });
-
-      // edge to skibidi NOW
+      const iframe = document.createElement("iframe");
+      iframe.id = "iframe-" + tabId;
+      iframe.src = `/api/proxy/${encodedUrl}`;
+      iframe.style.display = "none";
+      iframesContainer.appendChild(iframe);
       const tab = document.createElement("div");
       tab.classList.add("tab");
-      tab.innerText = url;
       tab.dataset.id = tabId;
-      tab.onclick = () => switchTab(tabId);
-      document.getElementById("tabs").appendChild(tab);
-
-      // random comment hehe fuck u
-      const iframe = document.createElement("iframe");
-      iframe.src = `/api/proxy/${encodedUrl}`;
-      iframe.id = iframeId;
-      document.getElementById("iframes").appendChild(iframe);
-
+      const span = document.createElement("span");
+      span.textContent = url;
+      const closeBtn = document.createElement("button");
+      closeBtn.textContent = "x";
+      closeBtn.classList.add("close-btn");
+      closeBtn.onclick = (e) => { e.stopPropagation(); closeTab(tabId); };
+      tab.appendChild(span);
+      tab.appendChild(closeBtn);
+      tab.onclick = () => { switchTab(tabId); };
+      tabsContainer.appendChild(tab);
+      tabs.push({ id: tabId, url: url, tabElement: tab, iframe: iframe });
       switchTab(tabId);
     }
-
-    function switchTab(tabId) {
-      document.querySelectorAll(".tab").forEach(tab => {
-        tab.classList.toggle("active", tab.dataset.id === tabId);
+    
+    function switchTab(id) {
+      tabs.forEach(t => {
+        if(t.id === id) {
+          t.tabElement.classList.add("active");
+          t.iframe.style.display = "block";
+          activeTab = t;
+          addressBar.value = t.url;
+        } else {
+          t.tabElement.classList.remove("active");
+          t.iframe.style.display = "none";
+        }
       });
-      document.querySelectorAll("iframe").forEach(iframe => {
-        iframe.style.display = "none";
-      });
-      const activeTab = tabs.find(t => t.id === tabId);
-      if (activeTab) {
-        document.getElementById(activeTab.iframeId).style.display = "block";
+    }
+    
+    function closeTab(id) {
+      let index = tabs.findIndex(t => t.id === id);
+      if(index === -1) return;
+      const t = tabs[index];
+      tabsContainer.removeChild(t.tabElement);
+      iframesContainer.removeChild(t.iframe);
+      tabs.splice(index, 1);
+      if(activeTab.id === id) {
+        if(tabs.length > 0) switchTab(tabs[Math.max(0, index - 1)].id);
+        else { activeTab = null; addressBar.value = ""; }
       }
     }
-
-    // SIGMA SIGMA BOY SIGMA BOY SIMGA BOY
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js")
-        .then(() => console.log("Service Worker registered"))
-        .catch((err) => console.error("Service Worker registration failed:", err));
+    
+    function navigate(url) {
+      if(!url.startsWith("http")) url = "https://" + url;
+      if(activeTab) {
+        activeTab.url = url;
+        activeTab.tabElement.querySelector("span").textContent = url;
+        activeTab.iframe.src = `/api/proxy/${btoa(url)}`;
+        addressBar.value = url;
+      }
     }
+    
+    function goBack() { if(activeTab && activeTab.iframe.contentWindow.history.length > 0) activeTab.iframe.contentWindow.history.back(); }
+    function goForward() { if(activeTab && activeTab.iframe.contentWindow.history.length > 0) activeTab.iframe.contentWindow.history.forward(); }
+    function reloadPage() { if(activeTab) activeTab.iframe.contentWindow.location.reload(); }
+    
+    function inspect() {
+      if(!activeTab) return;
+      let source = "Unable to access content.";
+      try { source = activeTab.iframe.contentDocument.documentElement.outerHTML; }
+      catch(e) { console.error(e); }
+      document.getElementById("modal-pre").textContent = source;
+      document.getElementById("modal").style.display = "flex";
+    }
+    
+    function closeModal() { document.getElementById("modal").style.display = "none"; }
+    
+    if("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(err => console.error(err));
+    }
+    
+    newTab();
   </script>
-
 </body>
 </html>
